@@ -1,7 +1,6 @@
-<!-- Plugin Configuration File. Read more: https://plugins.jetbrains.com/docs/intellij/plugin-configuration-file.html -->
 <idea-plugin>
     <id>com.github.byshy.flutterassistant</id>
-    <name>flutter-assistant</name>
+    <name>Flutter Assistant</name>
     <vendor>byshy</vendor>
 
     <depends>com.intellij.modules.platform</depends>
@@ -10,10 +9,13 @@
     <resource-bundle>messages.MyBundle</resource-bundle>
 
     <extensions defaultExtensionNs="com.intellij">
-        <toolWindow factoryClass="com.github.byshy.flutterassistant.toolWindow.MyToolWindowFactory" id="MyToolWindow"/>
+        <!-- Register the inspection to detect unused BLoC events in Dart files -->
+        <localInspection
+                language="Dart"
+                implementationClass="com.github.byshy.flutterassistant.inspections.UnusedBlocEventInspection"
+                shortName="UnusedBLoCEvent"
+                displayName="Detect unused BLoC event"
+                groupName="Flutter assistant"
+                enabledByDefault="true"/>
     </extensions>
-
-    <applicationListeners>
-        <listener class="com.github.byshy.flutterassistant.listeners.MyApplicationActivationListener" topic="com.intellij.openapi.application.ApplicationActivationListener"/>
-    </applicationListeners>
 </idea-plugin>
