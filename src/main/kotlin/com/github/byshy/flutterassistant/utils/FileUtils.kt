@@ -1,5 +1,7 @@
 package com.github.byshy.flutterassistant.utils
 
+import ai.grazie.utils.capitalize
+
 class FileUtils {
     companion object {
         fun getEventBLoCFile(eventFileName: String) : String {
@@ -33,6 +35,10 @@ class FileUtils {
             val fileNameChunks = fileName.split("_")
 
             return fileNameChunks.dropLast(1)
+        }
+
+        fun getBlocName(eventFileName: String) : String {
+            return getFileNameChunks(eventFileName)[0].capitalize()
         }
     }
 }

@@ -32,7 +32,7 @@ class UnusedBlocEventInspection : LocalInspectionTool() {
                 val dartFile = element.containingFile as? DartFile ?: return
                 if (!FileUtils.isEventFile(dartFile.name, dartFile.text)) return
 
-                if (!isUsedBlocEvent(element)) {
+                if (isBlocEventSubclass(element, dartFile) && !isUsedBlocEvent(element)) {
                     holder.registerProblem(
                         element.nameIdentifier ?: element,
                         "Unused BLoC event detected",
@@ -41,6 +41,13 @@ class UnusedBlocEventInspection : LocalInspectionTool() {
                 }
             }
         }
+    }
+
+    private fun isBlocEventSubclass(dartClass: DartClass, dartFile: DartFile): Boolean {
+        val blocName = FileUtils.getBlocName(dartFile.name)
+
+        // Check if dartClass has the required superclass
+        return dartClass.superClass?.text == "${blocName}Event" // Replace with the actual superclass name
     }
 
     private fun isUsedBlocEvent(dartClass: DartClass): Boolean {
