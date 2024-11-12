@@ -19,16 +19,16 @@ class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
 
         // Get BLoC file for the event
         val blocFileNameWithExtension = FileUtils.getEventBLoCFile(dartFile.name)
-        val classDirectory = dartFile.virtualFile.parent
-        val blocDartFile = classDirectory?.findChild(blocFileNameWithExtension) ?: return
+        val blocParentDirectory = dartFile.virtualFile.parent
+        val blocVirtualFile = blocParentDirectory?.findChild(blocFileNameWithExtension) ?: return
 
         // Locate the BLoC class in the adjacent file
-        val blocFile = PsiManager.getInstance(project).findFile(blocDartFile) as? DartFile ?: return
-        val blocClass = PsiTreeUtil.findChildOfType(blocFile, DartClass::class.java) ?: return
+        val blocDartFile = PsiManager.getInstance(project).findFile(blocVirtualFile) as? DartFile ?: return
+        val blocDartClass = PsiTreeUtil.findChildOfType(blocDartFile, DartClass::class.java) ?: return
 
         // Find the constructor for the BLoC class
-        val blocConstructor = PsiTreeUtil.findChildrenOfType(blocClass, DartMethodDeclaration::class.java)
-            .firstOrNull { it.name == blocClass.name } ?: return
+        val blocConstructor = PsiTreeUtil.findChildrenOfType(blocDartClass, DartMethodDeclaration::class.java)
+            .firstOrNull { it.name == blocDartClass.name } ?: return
 
         // Construct the new handler code for the constructor
         val eventClassName = dartClass.name
@@ -44,26 +44,37 @@ class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
         }
     """.trimIndent()
 
-        // Check if the constructor has a body
-        val functionBody = blocConstructor.functionBody ?: return
-        val classBody = blocClass.children ?: return
-
         // Create the handler invocation statement (for the constructor body)
         val constructorStatement = DartElementGenerator.createStatementFromText(project, newHandlerCode) ?: return
+
         // Create a method declaration statement (for the class body)
         val methodDeclaration = DartElementGenerator.createStatementFromText(project, newHandlerMethod) ?: return
+
         val semicolon = DartElementGenerator.createStatementFromText(project, ";") ?: return
 
+        // Check if the constructor has a body
+        val constructorBody = blocConstructor.functionBody ?: return
 
-        // Add the new handler code to the constructor body after the last statement
-        val constructorBodyBlock = functionBody.children.get(0);
-        val constructorBodyContent = constructorBodyBlock.children
-            .get(constructorBodyBlock.children.lastIndex - 2);
+        //Get the Full constructor block
+        val constructorBodyBlock = constructorBody.children[0]
 
-        val classBodyContent = blocClass.children.get(blocClass.children.lastIndex).children.get(0);
+        /**
+         * The offset here refers to where the content of the constructor is located at in the [constructorBodyBlock.children]
+         * The 2 refers to the list having 2 entries after the content of the constructor
+         * The 2 elements are the closing curly braces and the new line character
+         */
+        val constructorBodyContentOffset = 2
 
-        constructorBodyContent.add(constructorStatement).add(semicolon);
-        classBodyContent.add(methodDeclaration);
+        //Get the constructor body content.
+        val constructorBodyContent =
+            constructorBodyBlock.children[constructorBodyBlock.children.lastIndex - constructorBodyContentOffset]
+
+        //Get the class body content.
+        val classBodyContent = blocDartClass.children[blocDartClass.children.lastIndex].children[0]
+
+        constructorBodyContent.add(constructorStatement).add(semicolon)
+
+        classBodyContent.add(methodDeclaration)
     }
 }
 
