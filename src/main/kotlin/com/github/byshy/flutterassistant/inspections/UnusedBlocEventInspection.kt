@@ -47,7 +47,7 @@ class UnusedBlocEventInspection : LocalInspectionTool() {
         val blocName = FileUtils.getBlocName(dartFile.name)
 
         // Check if dartClass has the required superclass
-        return dartClass.superClass?.text == "${blocName}Event" // Replace with the actual superclass name
+        return dartClass.superClass?.text == "${blocName}Event"
     }
 
     private fun isUsedBlocEvent(dartClass: DartClass): Boolean {

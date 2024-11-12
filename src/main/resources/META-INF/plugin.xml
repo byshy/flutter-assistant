@@ -1,7 +1,7 @@
 <idea-plugin>
     <id>com.github.byshy.flutterassistant</id>
     <name>Flutter Assistant</name>
-    <vendor>byshy</vendor>
+    <vendor email="baselhadrous99@gmail.com">byshy</vendor>
 
     <depends>com.intellij.modules.platform</depends>
     <depends>Dart</depends>

@@ -1,6 +1,8 @@
 # flutter-assistant
 
+<!-- Plugin description -->
 The **Flutter assistant** is a plugin for Android Studio and IntelliJ that helps developers ensure all BLoC events are in use. This tool checks for unused event classes and provides helpful suggestion to ✨automagically✨ generate the handler inside the related BLoC.
+<!-- Plugin description end -->
 
 ## Features
 

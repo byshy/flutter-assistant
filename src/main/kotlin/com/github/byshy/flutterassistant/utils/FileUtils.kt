@@ -4,7 +4,7 @@ import ai.grazie.utils.capitalize
 
 class FileUtils {
     companion object {
-        fun getEventBLoCFile(eventFileName: String) : String {
+        fun getEventBLoCFile(eventFileName: String): String {
             val fileNameChunks = getFileNameChunks(eventFileName)
 
             val blocFileName = fileNameChunks.joinToString("_") + "_bloc"
@@ -13,7 +13,7 @@ class FileUtils {
             return blocFileNameWithExtension
         }
 
-        fun isEventFile(eventFileName: String, eventFileContent: String) : Boolean {
+        fun isEventFile(eventFileName: String, eventFileContent: String): Boolean {
             val fileNameChunks = getFullFileNameChunks(eventFileName)
             val eventBLoCFileName = getEventBLoCFile(eventFileName)
 
@@ -23,22 +23,23 @@ class FileUtils {
             return isEventsFile && isPartOfBloc
         }
 
-        private fun getFullFileNameChunks(fileNameWithExtension: String) : List<String> {
+        private fun getFullFileNameChunks(fileNameWithExtension: String): List<String> {
             val fileName = fileNameWithExtension.removeSuffix(".dart")
             val fileNameChunks = fileName.split("_")
 
             return fileNameChunks
         }
 
-        private fun getFileNameChunks(fileNameWithExtension: String) : List<String> {
+        private fun getFileNameChunks(fileNameWithExtension: String): List<String> {
             val fileName = fileNameWithExtension.removeSuffix(".dart")
             val fileNameChunks = fileName.split("_")
 
             return fileNameChunks.dropLast(1)
         }
 
-        fun getBlocName(eventFileName: String) : String {
-            return getFileNameChunks(eventFileName)[0].capitalize()
+        fun getBlocName(eventFileName: String): String {
+            return getFileNameChunks(eventFileName)
+                .joinToString("") { it.capitalize() }
         }
     }
 }
