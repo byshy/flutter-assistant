@@ -13,8 +13,13 @@ import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.lang.dart.psi.DartClass
 import com.jetbrains.lang.dart.psi.DartFile
 import com.jetbrains.lang.dart.psi.DartReferenceExpression
+import com.intellij.openapi.diagnostic.Logger
+import com.intellij.openapi.project.Project
 
 class UnusedBlocEventInspection : LocalInspectionTool() {
+
+    private val log = Logger.getInstance(UnusedBlocEventInspection::class.java)
+
     override fun getDisplayName(): String {
         return "Detect unused BLoC event"
     }
@@ -22,45 +27,60 @@ class UnusedBlocEventInspection : LocalInspectionTool() {
     override fun buildVisitor(holder: ProblemsHolder, isOnTheFly: Boolean): PsiElementVisitor {
         return object : PsiElementVisitor() {
             override fun visitElement(element: PsiElement) {
-                val isADartClass = element is DartClass
+                if (element !is DartClass) return
 
-                if (isADartClass) {
-                    val dartFile = (element as DartClass).containingFile as? DartFile ?: return
-                    val isEventFile = FileUtils.isEventFile(dartFile.name, dartFile.text)
+                val dartFile = element.containingFile as? DartFile ?: return
+                if (!FileUtils.isEventFile(dartFile.name, dartFile.text)) return
 
-                    if (isEventFile) {
-                        val isNotUsed = !isUsedBlocEvent(element)
-
-                        if (isNotUsed) {
-                            /**
-                             * We must pass the [element] manually to the [AddBlocHandlerFix] since taking it from the
-                             * descriptor can't be cast into a [DartClass]
-                            */
-                            holder.registerProblem(
-                                element.nameIdentifier ?: element,
-                                "Unused BLoC event detected",
-                                AddBlocHandlerFix(element)
-                            )
-                        }
-                    }
+                if (!isUsedBlocEvent(element)) {
+                    holder.registerProblem(
+                        element.nameIdentifier ?: element,
+                        "Unused BLoC event detected",
+                        AddBlocHandlerFix(element)
+                    )
                 }
             }
         }
     }
 
     private fun isUsedBlocEvent(dartClass: DartClass): Boolean {
-        val dartFile = dartClass.containingFile as? DartFile ?: return false
+        val dartFile = dartClass.containingFile as? DartFile ?: run {
+            log.warn("Failed to cast containing file to DartFile for ${dartClass.name}")
+            return false
+        }
+
         val project = dartClass.project
         val blocFileNameWithExtension = FileUtils.getEventBLoCFile(dartFile.name)
-        val classDirectory = dartFile.virtualFile.parent
-        val blocDartFile = classDirectory.findChild(blocFileNameWithExtension) ?: return false
+        val blocVirtualFile = dartFile.virtualFile.parent?.findChild(blocFileNameWithExtension) ?: run {
+            log.warn("BLoC file not found for event file: ${dartFile.name}")
+            return false
+        }
 
-        // Search for references directly
-        val references = ReferencesSearch.search(dartClass, GlobalSearchScope.fileScope(project, blocDartFile))
-        if (references.findFirst() != null) return true
+        return hasDirectReference(dartClass, project, blocVirtualFile) || hasReferenceInAdjacentFile(
+            dartClass,
+            project,
+            blocVirtualFile
+        )
+    }
 
-        // Alternative search for DartReferenceExpression if direct references are not found
-        val adjacentDartFile = PsiManager.getInstance(project).findFile(blocDartFile) as? DartFile ?: return false
+    private fun hasDirectReference(
+        dartClass: DartClass,
+        project: Project,
+        blocVirtualFile: com.intellij.openapi.vfs.VirtualFile
+    ): Boolean {
+        val references = ReferencesSearch.search(dartClass, GlobalSearchScope.fileScope(project, blocVirtualFile))
+        return references.findFirst() != null
+    }
+
+    private fun hasReferenceInAdjacentFile(
+        dartClass: DartClass,
+        project: Project,
+        blocVirtualFile: com.intellij.openapi.vfs.VirtualFile
+    ): Boolean {
+        val adjacentDartFile = PsiManager.getInstance(project).findFile(blocVirtualFile) as? DartFile ?: run {
+            log.warn("Failed to find DartFile for BLoC file: $blocVirtualFile")
+            return false
+        }
         return PsiTreeUtil.findChildrenOfType(adjacentDartFile, DartReferenceExpression::class.java)
             .any { it.text == dartClass.name }
     }

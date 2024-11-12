@@ -10,71 +10,111 @@ import com.jetbrains.lang.dart.psi.DartClass
 import com.jetbrains.lang.dart.psi.DartFile
 import com.jetbrains.lang.dart.psi.DartMethodDeclaration
 import com.jetbrains.lang.dart.util.DartElementGenerator
+import com.intellij.openapi.diagnostic.Logger
 
 class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
+
+    companion object {
+        private const val CONSTRUCTOR_BODY_CONTENT_OFFSET = 2
+    }
+
+    private val log = Logger.getInstance(AddBlocHandlerFix::class.java)
+
     override fun getFamilyName() = "Add BLoC handler for unused event"
 
     override fun applyFix(project: Project, descriptor: ProblemDescriptor) {
-        val dartFile = dartClass.containingFile as? DartFile ?: return
+        val dartFile = dartClass.containingFile as? DartFile ?: run {
+            log.warn("Failed to cast containing file to DartFile")
+            return
+        }
 
-        // Get BLoC file for the event
+        val blocVirtualFile = findBlocVirtualFile(dartFile) ?: return
+        val blocDartClass = findBlocDartClass(project, blocVirtualFile) ?: return
+
+        val blocConstructor = findBlocConstructor(blocDartClass) ?: return
+
+        val eventClassName = dartClass.name ?: run {
+            log.warn("Event class name is null for $dartClass")
+            return
+        }
+
+        val newHandlerCode = generateHandlerCode(eventClassName)
+        val newHandlerMethod = generateHandlerMethod(eventClassName)
+
+        addHandlerToBloc(project, blocConstructor, blocDartClass, newHandlerCode, newHandlerMethod)
+    }
+
+    private fun findBlocVirtualFile(dartFile: DartFile): com.intellij.openapi.vfs.VirtualFile? {
         val blocFileNameWithExtension = FileUtils.getEventBLoCFile(dartFile.name)
         val blocParentDirectory = dartFile.virtualFile.parent
-        val blocVirtualFile = blocParentDirectory?.findChild(blocFileNameWithExtension) ?: return
-
-        // Locate the BLoC class in the adjacent file
-        val blocDartFile = PsiManager.getInstance(project).findFile(blocVirtualFile) as? DartFile ?: return
-        val blocDartClass = PsiTreeUtil.findChildOfType(blocDartFile, DartClass::class.java) ?: return
-
-        // Find the constructor for the BLoC class
-        val blocConstructor = PsiTreeUtil.findChildrenOfType(blocDartClass, DartMethodDeclaration::class.java)
-            .firstOrNull { it.name == blocDartClass.name } ?: return
-
-        // Construct the new handler code for the constructor
-        val eventClassName = dartClass.name
-
-        val newHandlerCode = """
-        on<$eventClassName>(_on$eventClassName)
-    """.trimIndent()
-
-        // Create the new handler method
-        val newHandlerMethod = """
-        void _on$eventClassName($eventClassName event, emit) {
-            // TODO: Implement event handling logic
+        return blocParentDirectory?.findChild(blocFileNameWithExtension).also {
+            if (it == null) log.warn("BLoC file not found for event: ${dartFile.name}")
         }
-    """.trimIndent()
+    }
 
-        // Create the handler invocation statement (for the constructor body)
-        val constructorStatement = DartElementGenerator.createStatementFromText(project, newHandlerCode) ?: return
+    private fun findBlocDartClass(project: Project, blocVirtualFile: com.intellij.openapi.vfs.VirtualFile): DartClass? {
+        val blocDartFile = PsiManager.getInstance(project).findFile(blocVirtualFile) as? DartFile ?: run {
+            log.warn("Failed to find DartFile for BLoC file")
+            return null
+        }
+        return PsiTreeUtil.findChildOfType(blocDartFile, DartClass::class.java).also {
+            if (it == null) log.warn("BLoC Dart class not found in file: $blocDartFile")
+        }
+    }
 
-        // Create a method declaration statement (for the class body)
-        val methodDeclaration = DartElementGenerator.createStatementFromText(project, newHandlerMethod) ?: return
+    private fun findBlocConstructor(blocDartClass: DartClass): DartMethodDeclaration? {
+        return PsiTreeUtil.findChildrenOfType(blocDartClass, DartMethodDeclaration::class.java)
+            .firstOrNull { it.name == blocDartClass.name }.also {
+                if (it == null) log.warn("Constructor not found for BLoC class: ${blocDartClass.name}")
+            }
+    }
 
+    private fun generateHandlerCode(eventClassName: String): String {
+        return """
+            on<$eventClassName>(_on$eventClassName)
+        """.trimIndent()
+    }
+
+    private fun generateHandlerMethod(eventClassName: String): String {
+        return """
+            void _on$eventClassName($eventClassName event, emit) {
+                // TODO: Implement event handling logic
+            }
+        """.trimIndent()
+    }
+
+    private fun addHandlerToBloc(
+        project: Project,
+        blocConstructor: DartMethodDeclaration,
+        blocDartClass: DartClass,
+        handlerCode: String,
+        handlerMethod: String
+    ) {
+        val constructorStatement = DartElementGenerator.createStatementFromText(project, handlerCode) ?: return
+        val methodDeclaration = DartElementGenerator.createStatementFromText(project, handlerMethod) ?: return
         val semicolon = DartElementGenerator.createStatementFromText(project, ";") ?: return
 
-        // Check if the constructor has a body
-        val constructorBody = blocConstructor.functionBody ?: return
+        // Check if the constructor has a body and get its content
+        val constructorBody = blocConstructor.functionBody ?: run {
+            log.warn("Constructor body is null for ${blocConstructor.name}")
+            return
+        }
+        val constructorBodyBlock = constructorBody.children.getOrNull(0) ?: run {
+            log.warn("Constructor body block is null for ${blocConstructor.name}")
+            return
+        }
+        val constructorBodyContent = constructorBodyBlock.children.getOrNull(
+            constructorBodyBlock.children.lastIndex - CONSTRUCTOR_BODY_CONTENT_OFFSET
+        ) ?: run {
+            log.warn("Failed to access constructor body content for ${blocConstructor.name}")
+            return
+        }
 
-        //Get the Full constructor block
-        val constructorBodyBlock = constructorBody.children[0]
-
-        /**
-         * The offset here refers to where the content of the constructor is located at in the [constructorBodyBlock.children]
-         * The 2 refers to the list having 2 entries after the content of the constructor
-         * The 2 elements are the closing curly braces and the new line character
-         */
-        val constructorBodyContentOffset = 2
-
-        //Get the constructor body content.
-        val constructorBodyContent =
-            constructorBodyBlock.children[constructorBodyBlock.children.lastIndex - constructorBodyContentOffset]
-
-        //Get the class body content.
-        val classBodyContent = blocDartClass.children[blocDartClass.children.lastIndex].children[0]
-
+        // Add the handler invocation statement to the constructor body
         constructorBodyContent.add(constructorStatement).add(semicolon)
 
+        // Get the class body and add the new handler method
+        val classBodyContent = blocDartClass.children[blocDartClass.children.lastIndex].children[0]
         classBodyContent.add(methodDeclaration)
     }
 }
-
