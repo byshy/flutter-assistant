@@ -1,7 +1,5 @@
-<!-- Keep a Changelog guide -> https://keepachangelog.com -->
-
 # flutter-assistant Changelog
 
-## [Unreleased]
+## [1.0.1] - 2024-11-24
 ### Added
-- The first release
+- Fix failure to generate event handled when the BLoC has an empty constructor

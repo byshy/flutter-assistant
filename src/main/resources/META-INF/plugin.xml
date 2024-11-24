@@ -6,8 +6,6 @@
     <depends>com.intellij.modules.platform</depends>
     <depends>Dart</depends>
 
-    <resource-bundle>messages.MyBundle</resource-bundle>
-
     <extensions defaultExtensionNs="com.intellij">
         <!-- Register the inspection to detect unused BLoC events in Dart files -->
         <localInspection
