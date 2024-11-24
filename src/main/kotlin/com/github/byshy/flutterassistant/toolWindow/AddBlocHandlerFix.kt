@@ -127,7 +127,7 @@ class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
         }
 
         val constructorBodyContent = constructorBodyBlock.children.getOrNull(
-                constructorBodyBlock.children.lastIndex - offset
+            constructorBodyBlock.children.lastIndex - offset
         ) ?: run {
             log.warn("Failed to access constructor body content for ${blocConstructor.name}")
             return
