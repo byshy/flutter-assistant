@@ -66,9 +66,9 @@ class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
 
     private fun findBlocConstructor(blocDartClass: DartClass): DartMethodDeclaration? {
         return PsiTreeUtil.findChildrenOfType(blocDartClass, DartMethodDeclaration::class.java)
-                .firstOrNull { it.name == blocDartClass.name }.also {
-                    if (it == null) log.warn("Constructor not found for BLoC class: ${blocDartClass.name}")
-                }
+            .firstOrNull { it.name == blocDartClass.name }.also {
+                if (it == null) log.warn("Constructor not found for BLoC class: ${blocDartClass.name}")
+            }
     }
 
     private fun generateHandlerCode(eventClassName: String): String {
