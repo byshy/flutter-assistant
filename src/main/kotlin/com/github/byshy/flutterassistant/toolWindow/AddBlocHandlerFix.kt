@@ -86,11 +86,11 @@ class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
     }
 
     private fun addHandlerToBloc(
-            project: Project,
-            blocConstructor: DartMethodDeclaration,
-            blocDartClass: DartClass,
-            handlerCode: String,
-            handlerMethod: String
+        project: Project,
+        blocConstructor: DartMethodDeclaration,
+        blocDartClass: DartClass,
+        handlerCode: String,
+        handlerMethod: String
     ) {
         val constructorStatement = DartElementGenerator.createStatementFromText(project, handlerCode) ?: return
         val methodDeclaration = DartElementGenerator.createStatementFromText(project, handlerMethod) ?: return
