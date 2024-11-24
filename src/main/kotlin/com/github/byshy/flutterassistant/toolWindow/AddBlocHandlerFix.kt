@@ -4,7 +4,6 @@ import com.github.byshy.flutterassistant.utils.FileUtils
 import com.intellij.openapi.project.Project
 import com.intellij.codeInspection.LocalQuickFix
 import com.intellij.codeInspection.ProblemDescriptor
-import com.intellij.openapi.application.ApplicationManager
 import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.lang.dart.psi.DartClass
@@ -95,16 +94,17 @@ class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
     ) {
         val constructorStatement = DartElementGenerator.createStatementFromText(project, handlerCode) ?: return
         val methodDeclaration = DartElementGenerator.createStatementFromText(project, handlerMethod) ?: return
-        val semicolon = DartElementGenerator.createStatementFromText(project, ";") ?: return
+        val semicolon = DartElementGenerator.createStatementFromText(project, SEMICOLON) ?: return
         val emptyBlock = DartElementGenerator.createStatementFromText(project, "{\n}") ?: return
-        val whiteSpace = PsiParserFacade.getInstance(project).createWhiteSpaceFromText(" ") ?: return
+        val whiteSpace = PsiParserFacade.getInstance(project).createWhiteSpaceFromText(" ")
 
         // Get the class body and add the new handler method
         val classBodyContent = blocDartClass.children[blocDartClass.children.lastIndex].children[0]
         classBodyContent.add(methodDeclaration)
 
         // Check if the constructor has a body and get its content
-        var constructorBody = blocConstructor.functionBody
+        val constructorBody = blocConstructor.functionBody
+
         if (constructorBody == null) {
             if (blocConstructor.lastChild.text.equals(SEMICOLON)) {
                 blocConstructor.lastChild.delete()
@@ -116,12 +116,12 @@ class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
             return
         }
 
-        val constructorBodyBlock = constructorBody?.children?.getOrNull(0) ?: run {
+        val constructorBodyBlock = constructorBody.children.getOrNull(0) ?: run {
             log.warn("Constructor body block is null for ${blocConstructor.name}")
             return
         }
 
-        var offset = CONSTRUCTOR_BODY_CONTENT_OFFSET;
+        var offset = CONSTRUCTOR_BODY_CONTENT_OFFSET
         if (constructorBodyBlock.children.lastIndex <= 3) {
             offset = 1
         }
