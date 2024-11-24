@@ -4,6 +4,7 @@ import com.github.byshy.flutterassistant.utils.FileUtils
 import com.intellij.openapi.project.Project
 import com.intellij.codeInspection.LocalQuickFix
 import com.intellij.codeInspection.ProblemDescriptor
+import com.intellij.openapi.application.ApplicationManager
 import com.intellij.psi.PsiManager
 import com.intellij.psi.util.PsiTreeUtil
 import com.jetbrains.lang.dart.psi.DartClass
@@ -11,11 +12,13 @@ import com.jetbrains.lang.dart.psi.DartFile
 import com.jetbrains.lang.dart.psi.DartMethodDeclaration
 import com.jetbrains.lang.dart.util.DartElementGenerator
 import com.intellij.openapi.diagnostic.Logger
+import com.intellij.psi.PsiParserFacade
 
 class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
 
     companion object {
         private const val CONSTRUCTOR_BODY_CONTENT_OFFSET = 2
+        private const val SEMICOLON = ";"
     }
 
     private val log = Logger.getInstance(AddBlocHandlerFix::class.java)
@@ -64,9 +67,9 @@ class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
 
     private fun findBlocConstructor(blocDartClass: DartClass): DartMethodDeclaration? {
         return PsiTreeUtil.findChildrenOfType(blocDartClass, DartMethodDeclaration::class.java)
-            .firstOrNull { it.name == blocDartClass.name }.also {
-                if (it == null) log.warn("Constructor not found for BLoC class: ${blocDartClass.name}")
-            }
+                .firstOrNull { it.name == blocDartClass.name }.also {
+                    if (it == null) log.warn("Constructor not found for BLoC class: ${blocDartClass.name}")
+                }
     }
 
     private fun generateHandlerCode(eventClassName: String): String {
@@ -84,27 +87,47 @@ class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
     }
 
     private fun addHandlerToBloc(
-        project: Project,
-        blocConstructor: DartMethodDeclaration,
-        blocDartClass: DartClass,
-        handlerCode: String,
-        handlerMethod: String
+            project: Project,
+            blocConstructor: DartMethodDeclaration,
+            blocDartClass: DartClass,
+            handlerCode: String,
+            handlerMethod: String
     ) {
         val constructorStatement = DartElementGenerator.createStatementFromText(project, handlerCode) ?: return
         val methodDeclaration = DartElementGenerator.createStatementFromText(project, handlerMethod) ?: return
         val semicolon = DartElementGenerator.createStatementFromText(project, ";") ?: return
+        val emptyBlock = DartElementGenerator.createStatementFromText(project, "{\n}") ?: return
+        val whiteSpace = PsiParserFacade.getInstance(project).createWhiteSpaceFromText(" ") ?: return
+
+        // Get the class body and add the new handler method
+        val classBodyContent = blocDartClass.children[blocDartClass.children.lastIndex].children[0]
+        classBodyContent.add(methodDeclaration)
 
         // Check if the constructor has a body and get its content
-        val constructorBody = blocConstructor.functionBody ?: run {
-            log.warn("Constructor body is null for ${blocConstructor.name}")
+        var constructorBody = blocConstructor.functionBody
+        if (constructorBody == null) {
+            if (blocConstructor.lastChild.text.equals(SEMICOLON)) {
+                blocConstructor.lastChild.delete()
+            }
+
+            blocConstructor.add(whiteSpace)
+            blocConstructor.add(emptyBlock)
+            blocConstructor.lastChild.children[0].add(constructorStatement).add(semicolon)
             return
         }
-        val constructorBodyBlock = constructorBody.children.getOrNull(0) ?: run {
+
+        val constructorBodyBlock = constructorBody?.children?.getOrNull(0) ?: run {
             log.warn("Constructor body block is null for ${blocConstructor.name}")
             return
         }
+
+        var offset = CONSTRUCTOR_BODY_CONTENT_OFFSET;
+        if (constructorBodyBlock.children.lastIndex <= 3) {
+            offset = 1
+        }
+
         val constructorBodyContent = constructorBodyBlock.children.getOrNull(
-            constructorBodyBlock.children.lastIndex - CONSTRUCTOR_BODY_CONTENT_OFFSET
+                constructorBodyBlock.children.lastIndex - offset
         ) ?: run {
             log.warn("Failed to access constructor body content for ${blocConstructor.name}")
             return
@@ -113,8 +136,5 @@ class AddBlocHandlerFix(private val dartClass: DartClass) : LocalQuickFix {
         // Add the handler invocation statement to the constructor body
         constructorBodyContent.add(constructorStatement).add(semicolon)
 
-        // Get the class body and add the new handler method
-        val classBodyContent = blocDartClass.children[blocDartClass.children.lastIndex].children[0]
-        classBodyContent.add(methodDeclaration)
     }
 }
