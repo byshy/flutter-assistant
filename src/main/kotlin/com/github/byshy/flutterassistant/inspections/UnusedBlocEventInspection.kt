@@ -1,5 +1,6 @@
 package com.github.byshy.flutterassistant.inspections
 
+import com.github.byshy.flutterassistant.toolWindow.AddAsyncBlocHandlerFix
 import com.github.byshy.flutterassistant.toolWindow.AddBlocHandlerFix
 import com.github.byshy.flutterassistant.utils.FileUtils
 import com.intellij.codeInspection.LocalInspectionTool
@@ -36,7 +37,8 @@ class UnusedBlocEventInspection : LocalInspectionTool() {
                     holder.registerProblem(
                         element.nameIdentifier ?: element,
                         "Unused BLoC event detected",
-                        AddBlocHandlerFix(element)
+                        AddAsyncBlocHandlerFix(element),
+                        AddBlocHandlerFix(element),
                     )
                 }
             }
