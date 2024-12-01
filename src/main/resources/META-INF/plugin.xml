@@ -16,4 +16,15 @@
                 groupName="Flutter assistant"
                 enabledByDefault="true"/>
     </extensions>
+
+    <extensions defaultExtensionNs="com.intellij">
+        <!-- Register the inspection to detect unused BLoC events in Dart files -->
+        <localInspection
+                language="Dart"
+                implementationClass="com.github.byshy.flutterassistant.inspections.UnusedBatchBlocEventInspection"
+                shortName="UnusedBatchBLoCEvent"
+                displayName="Detect unused BLoC event in a batch job"
+                groupName="Flutter assistant"
+                enabledByDefault="true"/>
+    </extensions>
 </idea-plugin>

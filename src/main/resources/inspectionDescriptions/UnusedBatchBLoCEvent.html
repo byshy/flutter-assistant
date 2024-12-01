@@ -1,0 +1,27 @@
+<html lang="en-US">
+<body>
+<p>
+    Does the same work as UnusedBLoCEvent, but it fixes the issues as a batch and not 1 by 1
+</p>
+<p>
+    The inspection looks for Dart classes that subclass a BLoC event but lack references in their corresponding BLoC file. If a BLoC event class is found unused, the plugin suggests adding a handler to address the issue. This inspection encourages better code organization by ensuring that BLoC event subclasses are correctly referenced, reducing unnecessary classes in the project.
+</p>
+
+<pre><code>
+part of 'core_bloc.dart';
+
+class CoreEvent extends Equatable {
+  const CoreEvent();
+
+  @override
+  List&lt;Object?&gt; get props => [];
+}
+
+class CoreScreenMounted extends CoreEvent {
+  const CoreScreenMounted();
+}
+
+class Test21 extends CoreEvent {} // Highlighted as unused BLoC event
+</code></pre>
+</body>
+</html>
